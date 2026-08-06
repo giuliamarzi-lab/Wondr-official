@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import Results from "./pages/Results";
 import HowItWorks from "./pages/HowItWorks";
 import { useState, useEffect } from "react";
+import wondrLogo from "./assets/wondr-logo.svg";
 
 const WondrLogo = () => (
   <svg xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" viewBox="0 0 166.93 130.43" style={{ width: "160px", height: "auto" }}>
