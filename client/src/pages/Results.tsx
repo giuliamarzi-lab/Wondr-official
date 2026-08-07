@@ -46,7 +46,7 @@ const toResultCards = (itineraries: Itinerary[], lang: "it" | "en") =>
     price: itinerary.totalPrice,
     directPrice: itinerary.directTotalPrice,
     saving: itinerary.savingTotal,
-    duration: `${Math.ceil(itinerary.durationMinutes / 60)}h`,
+    duration: `${Math.ceil(itinerary.durationMinutes / 60)}`,
     legs: itinerary.segments.length,
     means: itinerary.segments.map(segment => MODE_PRESENTATION[segment.mode].filterKey),
     detail: itinerary.segments.map(segment => {
