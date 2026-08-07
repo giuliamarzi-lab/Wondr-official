@@ -14,9 +14,15 @@ import { MapPin, Calendar, Users, Minus, Plus, Clock, Wallet, Search, ArrowRight
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  formMeansToModes,
+  normalizeSearchRequest,
+  resultsUrl,
+  SEARCH_LOCATION_NAMES,
+} from "@/search";
 
-const CITIES = ["Roma", "Milano", "Napoli", "Torino", "Firenze", "Venezia", "Palermo", "Bologna"];
-const DESTS = ["Dubai", "Tokyo", "New York", "Bangkok", "Barcellona", "Amsterdam", "Londra", "Parigi"];
+const CITIES = SEARCH_LOCATION_NAMES;
+const DESTS = SEARCH_LOCATION_NAMES;
 // Preset per ciascuna destinazione popolare: destinazione, data, viaggiatori, ore, budget, mezzi
 const POPULAR_PRESETS: Record<string, { dest: string; date: string; travelers: number; hours: string; budget: string; means: string[] }> = {
   "Tokyo":      { dest: "Tokyo",      date: "2026-09-15", travelers: 2, hours: "48",  budget: ">300",   means: ["voli"] },
@@ -70,9 +76,18 @@ export default function Home() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSearching(true);
+    const target = resultsUrl(normalizeSearchRequest({
+      origin: departure,
+      destination,
+      departureDate: date,
+      travelers,
+      maxDurationHours: Number(hours) as 12 | 24 | 48,
+      budgetBand: budget as "<100" | "100-300" | ">300",
+      modes: formMeansToModes(means),
+    }));
     setTimeout(() => {
       setSearching(false);
-      navigate("/results");
+      navigate(target);
     }, 1400);
   };
 
@@ -279,7 +294,7 @@ export default function Home() {
               <div className="flex flex-col gap-2 px-1">
                 <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5">
                   <Wallet size={13} aria-hidden="true" />
-                  {lang === "it" ? "Budget massimo" : "Max budget"}
+                  {lang === "it" ? "Budget massimo per singolo viaggiatore" : "Max budget per traveler"}
                 </span>
                 <div className="flex gap-2">
                   {[

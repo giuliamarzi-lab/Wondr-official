@@ -4,63 +4,63 @@
  * badge risparmio, disclaimer prezzi, link prenota → omio.com
  * Font: AvertaStd (Bold titoli, Regular corpo, Light secondario)
  */
-import React, { useState } from "react";
-import { useLocation } from "wouter";
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useSearch } from "wouter";
 import { ArrowLeft, SlidersHorizontal, ChevronDown, ChevronUp, ExternalLink, Clock, MapPin, Plane, Train, Bus, Ship, X, Search, Users, CalendarDays } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  formMeansToModes,
+  modesToFormMeans,
+  normalizeSearchRequest,
+  parseSearchQuery,
+  resultsUrl,
+  searchItineraries,
+} from "@/search";
+import type { Itinerary, TransportMode } from "@/search";
 
-const RESULTS = [
-  {
-    id: 1,
-    from: "Roma",
-    to: "Dubai",
-    price: 146,
-    directPrice: 420,
-    saving: 274,
-    duration: "28h",
-    legs: 4,
-    means: ["bus", "traghetto", "treno", "volo"],
-    detail: [
-      { Icon: Bus, from: "Roma Tiburtina", to: "Bari Centrale", carrier: "Bus, FlixBus", time: "06:30, 13:10", price: 12 },
-      { Icon: Ship, from: "Bari", to: "Patrasso", carrier: "Traghetto, Grimaldi Lines", time: "19:30, 08:00", price: 25 },
-      { Icon: Train, from: "Patrasso", to: "Atene", carrier: "Treno, Hellenic Train", time: "10:15, 13:40", price: 20 },
-      { Icon: Plane, from: "Atene (ATH)", to: "Dubai (DXB)", carrier: "Volo, Wizz Air", time: "16:50, 23:30", price: 89 },
-    ],
-  },
-  {
-    id: 2,
-    from: "Roma",
-    to: "Dubai",
-    price: 175,
-    directPrice: 420,
-    saving: 245,
-    duration: "20h",
-    legs: 3,
-    means: ["treno", "traghetto", "volo"],
-    detail: [
-      { Icon: Train, from: "Roma Termini", to: "Brindisi", carrier: "Treno, Italo", time: "07:00, 12:30", price: 30 },
-      { Icon: Ship, from: "Brindisi", to: "Atene (Patrasso)", carrier: "Traghetto, GNV", time: "15:00, 07:00", price: 45 },
-      { Icon: Plane, from: "Atene (ATH)", to: "Dubai (DXB)", carrier: "Volo, Volotea", time: "10:30, 17:00", price: 100 },
-    ],
-  },
-  {
-    id: 3,
-    from: "Roma",
-    to: "Dubai",
-    price: 210,
-    directPrice: 420,
-    saving: 210,
-    duration: "13h",
-    legs: 2,
-    means: ["volo"],
-    detail: [
-      { Icon: Plane, from: "Roma (FCO)", to: "Atene (ATH)", carrier: "Volo, Ryanair", time: "06:00, 09:30", price: 55 },
-      { Icon: Plane, from: "Atene (ATH)", to: "Dubai (DXB)", carrier: "Volo, easyJet", time: "12:00, 19:00", price: 155 },
-    ],
-  },
-];
+const MODE_PRESENTATION: Record<TransportMode, {
+  Icon: LucideIcon;
+  filterKey: string;
+  it: string;
+  en: string;
+}> = {
+  flight: { Icon: Plane, filterKey: "volo", it: "Volo", en: "Flight" },
+  train: { Icon: Train, filterKey: "treno", it: "Treno", en: "Train" },
+  bus: { Icon: Bus, filterKey: "bus", it: "Bus", en: "Bus" },
+  ferry: { Icon: Ship, filterKey: "traghetto", it: "Traghetto", en: "Ferry" },
+};
+
+const timeLabel = (value: string) => {
+  const date = new Date(value);
+  return `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
+};
+
+const toResultCards = (itineraries: Itinerary[], lang: "it" | "en") =>
+  [...itineraries].sort((a, b) => a.totalPrice - b.totalPrice).map((itinerary, index) => ({
+    id: index + 1,
+    from: itinerary.origin,
+    to: itinerary.destination,
+    price: itinerary.totalPrice,
+    directPrice: itinerary.directTotalPrice,
+    saving: itinerary.savingTotal,
+    duration: `${Math.ceil(itinerary.durationMinutes / 60)}h`,
+    legs: itinerary.segments.length,
+    means: itinerary.segments.map(segment => MODE_PRESENTATION[segment.mode].filterKey),
+    detail: itinerary.segments.map(segment => {
+      const presentation = MODE_PRESENTATION[segment.mode];
+      return {
+        Icon: presentation.Icon,
+        from: segment.from,
+        to: segment.to,
+        carrier: `${lang === "it" ? presentation.it : presentation.en}, ${segment.operator}`,
+        time: `${timeLabel(segment.departureAt)}, ${timeLabel(segment.arrivalAt)}`,
+        price: segment.totalPrice,
+      };
+    }),
+  }));
 
 const MEANS_FORM = [
   { key: "voli", Icon: Plane },
@@ -71,7 +71,14 @@ const MEANS_FORM = [
 
 export default function Results() {
   const [, navigate] = useLocation();
+  const search = useSearch();
   const { t, lang } = useLanguage();
+  const request = useMemo(() => parseSearchQuery(search), [search]);
+  const response = useMemo(() => searchItineraries(request), [request]);
+  const results = useMemo(
+    () => toResultCards(response.itineraries, lang),
+    [response.itineraries, lang],
+  );
   const [expanded, setExpanded] = useState<number | null>(1);
   const [sortBy, setSortBy] = useState<"prezzo" | "durata">("prezzo");
   const ALL_MEANS = ["volo", "treno", "bus", "traghetto"];
@@ -79,18 +86,46 @@ export default function Results() {
 
   // Drawer stato
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editFrom, setEditFrom] = useState("Roma");
-  const [editTo, setEditTo] = useState("Dubai");
-  const [editDate, setEditDate] = useState("2026-07-10");
-  const [editTravelers, setEditTravelers] = useState(1);
-  const [editHours, setEditHours] = useState("48");
-  const [editBudget, setEditBudget] = useState("100-300");
-  const [editMeans, setEditMeans] = useState<string[]>(["voli", "treni", "bus", "traghetti"]);
+  const [editFrom, setEditFrom] = useState(request.origin);
+  const [editTo, setEditTo] = useState(request.destination);
+  const [editDate, setEditDate] = useState(request.departureDate);
+  const [editTravelers, setEditTravelers] = useState(request.travelers);
+  const [editHours, setEditHours] = useState(String(request.maxDurationHours));
+  const [editBudget, setEditBudget] = useState(request.budgetBand);
+  const [editMeans, setEditMeans] = useState<string[]>(modesToFormMeans(request.modes));
+
+  useEffect(() => {
+    setEditFrom(request.origin);
+    setEditTo(request.destination);
+    setEditDate(request.departureDate);
+    setEditTravelers(request.travelers);
+    setEditHours(String(request.maxDurationHours));
+    setEditBudget(request.budgetBand);
+    setEditMeans(modesToFormMeans(request.modes));
+    setFilterMeans(["tutti"]);
+    setExpanded(1);
+  }, [request]);
 
   const toggleEditMean = (key: string) => {
     setEditMeans(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+      prev.includes(key)
+        ? (prev.length > 1 ? prev.filter(k => k !== key) : prev)
+        : [...prev, key]
     );
+  };
+
+  const handleUpdateSearch = () => {
+    const nextRequest = normalizeSearchRequest({
+      origin: editFrom,
+      destination: editTo,
+      departureDate: editDate,
+      travelers: editTravelers,
+      maxDurationHours: Number(editHours) as 12 | 24 | 48,
+      budgetBand: editBudget,
+      modes: formMeansToModes(editMeans),
+    });
+    setDrawerOpen(false);
+    navigate(resultsUrl(nextRequest));
   };
 
   const toggleMeanFilter = (val: string) => {
@@ -109,9 +144,16 @@ export default function Results() {
     });
   };
 
-  const filtered = RESULTS
+  const filtered = results
     .filter(r => filterMeans.includes("tutti") || r.means.some(m => filterMeans.includes(m)))
     .sort((a, b) => sortBy === "prezzo" ? a.price - b.price : parseInt(a.duration) - parseInt(b.duration));
+
+  const budgetSummary = request.budgetBand === "<100"
+    ? "< €100"
+    : request.budgetBand === "100-300" ? "€100-300" : "> €300";
+  const travelerLabel = lang === "it"
+    ? (request.travelers === 1 ? "viaggiatore" : "viaggiatori")
+    : (request.travelers === 1 ? "traveler" : "travelers");
 
   const HOURS_OPTIONS = [
     { val: "12", label: lang === "it" ? "Fino a 12h" : "Up to 12h" },
@@ -122,7 +164,7 @@ export default function Results() {
     { val: "<100", label: "< €100" },
     { val: "100-300", label: "€100-300" },
     { val: ">300", label: "> €300" },
-  ];
+  ] as const;
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#F7F7F9" }}>
@@ -144,10 +186,10 @@ export default function Results() {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <h1 className="text-white mb-1" style={{ fontFamily: "'AvertaStd', sans-serif", fontWeight: 800, fontSize: "clamp(1.8rem, 4vw, 2.8rem)", letterSpacing: "-0.03em" }}>
-                Roma <span style={{ color: "#ec009b" }}>→</span> Dubai
+                {request.origin} <span style={{ color: "#ec009b" }}>→</span> {request.destination}
               </h1>
               <p style={{ color: "rgba(255,255,255,0.5)", fontFamily: "'AvertaStd', sans-serif", fontSize: "0.9rem" }}>
-                1 {lang === "it" ? "viaggiatore, fino a 48h, €100-300" : "traveler, up to 48h, €100-300"}
+                {request.travelers} {travelerLabel}, {lang === "it" ? "fino a" : "up to"} {request.maxDurationHours}h, {budgetSummary}
               </p>
             </div>
             <button
@@ -266,7 +308,7 @@ export default function Results() {
               {/* Row 3: Budget */}
               <div className="mb-4">
                 <p className="text-xs uppercase tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.4)", fontFamily: "'AvertaStd', sans-serif", fontWeight: 600, fontSize: "0.65rem" }}>
-                  {lang === "it" ? "Budget massimo" : "Max budget"}
+                  {lang === "it" ? "Budget massimo per singolo viaggiatore" : "Max budget per traveler"}
                 </p>
                 <div className="flex gap-2 flex-wrap">
                   {BUDGET_OPTIONS.map(b => (
@@ -319,7 +361,7 @@ export default function Results() {
 
               {/* CTA aggiorna */}
               <button
-                onClick={() => setDrawerOpen(false)}
+                onClick={handleUpdateSearch}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white transition-all"
                 style={{ background: "#ec009b", fontFamily: "'AvertaStd', sans-serif", fontWeight: 700, border: "none", boxShadow: "0 4px 20px rgba(236,0,155,0.35)" }}
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#d4008a"}
@@ -395,7 +437,7 @@ export default function Results() {
                 {filtered.length} {t("results_found")}
               </p>
               <p className="text-sm" style={{ color: "#888", fontFamily: "'AvertaStd', sans-serif" }}>
-                {t("results_from")} <strong style={{ color: "#ec009b" }}>€{Math.min(...filtered.map(r => r.price))}</strong>
+                {t("results_from")} <strong style={{ color: "#ec009b" }}>{filtered.length > 0 ? `€${Math.min(...filtered.map(r => r.price))}` : "—"}</strong>
               </p>
             </div>
 
