@@ -467,7 +467,7 @@ export default function Results() {
                             <Clock size={13} /> {r.duration} {t("results_hours")}
                           </span>
                           <span className="flex items-center gap-1 text-sm" style={{ color: "#888", fontFamily: "'AvertaStd', sans-serif" }}>
-                            <MapPin size={13} /> {r.legs} {t("results_legs")}
+                            <MapPin size={13} /> {r.legs} {r.legs === 1 ? (lang === "it" ? "tappa" : "leg") : t("results_legs")}
                           </span>
                           <div className="flex gap-1">
                             {r.detail.map((d, i) => (
@@ -482,7 +482,7 @@ export default function Results() {
                       <div className="flex flex-col items-end gap-3">
                         <div className="text-right">
                           <div style={{ fontFamily: "'AvertaStd', sans-serif", fontWeight: 800, fontSize: "1.8rem", color: "#ec009b", lineHeight: 1 }}>€{r.price}</div>
-                          <div className="text-xs mt-0.5" style={{ color: "#bbb", fontFamily: "'AvertaStd', sans-serif" }}>{t("results_total")}, {r.legs} {t("results_tickets")}</div>
+                          <div className="text-xs mt-0.5" style={{ color: "#bbb", fontFamily: "'AvertaStd', sans-serif" }}>{t("results_total")}, {r.legs} {r.legs === 1 ? (lang === "it" ? "biglietto" : "ticket") : t("results_tickets")}</div>
                         </div>
                         <a
                           href="https://www.omio.com"
