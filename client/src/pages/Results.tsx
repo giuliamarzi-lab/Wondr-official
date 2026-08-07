@@ -43,9 +43,10 @@ const toResultCards = (itineraries: Itinerary[], lang: "it" | "en") =>
     id: index + 1,
     from: itinerary.origin,
     to: itinerary.destination,
-    price: itinerary.totalPrice,
-    directPrice: itinerary.directTotalPrice,
-    saving: itinerary.savingTotal,
+    price: itinerary.pricePerTraveler,
+    totalPrice: itinerary.totalPrice,
+    directPrice: itinerary.directPricePerTraveler,
+    saving: itinerary.directPricePerTraveler - itinerary.pricePerTraveler,
     duration: `${Math.ceil(itinerary.durationMinutes / 60)}`,
     legs: itinerary.segments.length,
     means: itinerary.segments.map(segment => MODE_PRESENTATION[segment.mode].filterKey),
@@ -57,7 +58,7 @@ const toResultCards = (itineraries: Itinerary[], lang: "it" | "en") =>
         to: segment.to,
         carrier: `${lang === "it" ? presentation.it : presentation.en}, ${segment.operator}`,
         time: `${timeLabel(segment.departureAt)}, ${timeLabel(segment.arrivalAt)}`,
-        price: segment.totalPrice,
+        price: segment.pricePerTraveler,
       };
     }),
   }));
@@ -437,7 +438,7 @@ export default function Results() {
                 {filtered.length} {t("results_found")}
               </p>
               <p className="text-sm" style={{ color: "#888", fontFamily: "'AvertaStd', sans-serif" }}>
-                {t("results_from")} <strong style={{ color: "#ec009b" }}>{filtered.length > 0 ? `€${Math.min(...filtered.map(r => r.price))}` : "—"}</strong>
+                {t("results_from")} <strong style={{ color: "#ec009b" }}>{filtered.length > 0 ? `€${Math.min(...filtered.map(r => r.price))}` : "—"}</strong> {lang === "it" ? "a persona" : "per traveler"}
               </p>
             </div>
 
@@ -482,7 +483,7 @@ export default function Results() {
                       <div className="flex flex-col items-end gap-3">
                         <div className="text-right">
                           <div style={{ fontFamily: "'AvertaStd', sans-serif", fontWeight: 800, fontSize: "1.8rem", color: "#ec009b", lineHeight: 1 }}>€{r.price}</div>
-                          <div className="text-xs mt-0.5" style={{ color: "#bbb", fontFamily: "'AvertaStd', sans-serif" }}>{t("results_total")}, {r.legs} {r.legs === 1 ? (lang === "it" ? "biglietto" : "ticket") : t("results_tickets")}</div>
+                          <div className="text-xs mt-0.5" style={{ color: "#bbb", fontFamily: "'AvertaStd', sans-serif" }}>{lang === "it" ? "a persona" : "per traveler"} · €{r.totalPrice} {lang === "it" ? "totali" : "total"}</div>
                         </div>
                         <a
                           href="https://www.omio.com"
